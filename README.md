@@ -39,8 +39,7 @@ You can run this project with any local server or simply open `index.html` in yo
 
 ### Option 1: Python HTTP Server
 ```bash
-cd "C:\Users\GAGAN\.gemini\antigravity\scratch\looppulse-landing-page"
-python -m http.server 8080
+*****
 ```
 Then visit: `http://localhost:8080`
 
@@ -60,8 +59,8 @@ The market research inquiry form is integrated with **Supabase Edge Functions** 
 
 ```javascript
 const CONFIG = {
-  SUPABASE_EDGE_FUNCTION_URL: 'https://yscspgtyqetuyxikbvbo.supabase.co/functions/v1/research_inquiries',
-  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_K6saD7zHFcRkVDCXLH0nMg_cSxq-F5o',
+  SUPABASE_EDGE_FUNCTION_URL: ****,
+  SUPABASE_PUBLISHABLE_KEY: '******',
   ...
 };
 ```
