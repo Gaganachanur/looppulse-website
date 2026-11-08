@@ -1,0 +1,140 @@
+/* LoopPulse.in - Custom Design Tokens & CRO Enhancements */
+
+/* Smooth Scrolling & Typography Defaults */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Radio Cards Interactive Styling */
+.radio-card {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.radio-card:hover {
+  border-color: #2563EB;
+  background-color: rgba(37, 99, 235, 0.04);
+}
+
+.radio-card:has(input:checked) {
+  border-color: #2563EB;
+  background-color: #EFF6FF;
+  box-shadow: 0 0 0 1.5px #2563EB;
+}
+
+.radio-card:has(input:checked) .label-text {
+  color: #1E40AF;
+  font-weight: 700;
+}
+
+/* Industry Selection Cards */
+.industry-select-card {
+  transition: all 0.25s ease-in-out;
+}
+
+.industry-select-card:hover {
+  transform: translateY(-2px);
+}
+
+.industry-select-card.active-industry {
+  border-color: #2563EB;
+  background-color: #EFF6FF;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.15), 0 0 0 2px #2563EB;
+}
+
+.industry-select-card.active-industry .select-indicator {
+  color: #2563EB;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Subtle Animated Pulse on Hero Indicator */
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s infinite ease-in-out;
+}
+
+/* Custom form focus states */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Error state highlighting */
+.input-error {
+  border-color: #F43F5E !important;
+  background-color: #FFF1F2 !important;
+}
+
+/* FAQ Accordion Transitions */
+.faq-content {
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+/* Custom scrollbar for preview */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Touch-optimized horizontal scroll for Kanban preview */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.kanban-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Mobile CRO: Guarantee minimum 44px tap targets */
+@media (max-width: 640px) {
+  input, select, textarea, button, .radio-card, .industry-select-card {
+    min-height: 48px;
+  }
+}
+
+/* Print styles (clean) */
+@media print {
+  header, footer, #privacyModal, aside {
+    display: none !important;
+  }
+}
