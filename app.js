@@ -1,68 +1,64 @@
+
 /**
- * LoopPulse.in - High-Converting Landing Page & Research Form Engine
- * Designed for early-stage market validation with Indian SMBs.
+ * LoopPulse.in
+ * Landing Page, Analytics and Research Inquiry Form
+ * Production frontend candidate
  */
 
 // ========================================================
 // 1. CONFIGURATION
 // ========================================================
+
 const CONFIG = {
-  // Supabase Edge Function Endpoint
-  SUPABASE_EDGE_FUNCTION_URL: 'https://yscspgtyqetuyxikbvbo.supabase.co/functions/v1/research_inquiries',
+  SUPABASE_EDGE_FUNCTION_URL:
+    "https://yscspgtyqetuyxikbvbo.supabase.co/functions/v1/research_inquiries",
 
-  // Supabase Publishable Key (safe for public client-side access)
-  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_K6saD7zHFcRkVDCXLH0nMg_cSxq-F5o',
+  SUPABASE_PUBLISHABLE_KEY:
+    "sb_publishable_K6saD7zHFcRkVDCXLH0nMg_cSxq-F5o",
 
-  // Cloudflare Turnstile Managed Site Key
-  // Default: Cloudflare's always-pass test key for development ('1x00000000000000000000AA')
-  // Update with your production Turnstile site key created in Cloudflare Dashboard
-  TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+  TURNSTILE_SITE_KEY:
+    "0x4AAAAAAF7Tsu8ebg5Nugmm",
 
-  // Local storage key for confirmed submissions log
-  STORAGE_KEY: 'looppulse_research_submissions',
-
-  // Enable verbose debugging in browser console
-  DEBUG_ANALYTICS: true
+  DEBUG_ANALYTICS: false,
 };
 
 // ========================================================
-// 2. ANALYTICS & EVENT TRACKING DISPATCHER
+// 2. ANALYTICS
 // ========================================================
+
 window.LoopPulseAnalytics = {
-  track: function(eventName, properties = {}) {
+  track(eventName, properties = {}) {
     const payload = {
       event: eventName,
       timestamp: new Date().toISOString(),
       url: window.location.href,
-      referrer: document.referrer || 'direct',
-      ...properties
+      referrer: document.referrer || "direct",
+      ...properties,
     };
 
     if (CONFIG.DEBUG_ANALYTICS) {
-      console.log(`%c[LoopPulse Analytics] ${eventName}`, 'color: #2563EB; font-weight: bold;', payload);
+      console.log("[LoopPulse Analytics]", payload);
     }
 
-    // Google Tag Manager dataLayer support
-    if (window.dataLayer && Array.isArray(window.dataLayer)) {
+    if (Array.isArray(window.dataLayer)) {
       window.dataLayer.push(payload);
     }
 
-    // Google Analytics 4 (gtag) support
-    if (typeof window.gtag === 'function') {
-      window.gtag('event', eventName, properties);
+    if (typeof window.gtag === "function") {
+      window.gtag("event", eventName, properties);
     }
 
-    // Meta Pixel (fbq) support (crucial for Instagram Ads traffic)
-    if (typeof window.fbq === 'function') {
-      window.fbq('trackCustom', eventName, properties);
+    if (typeof window.fbq === "function") {
+      window.fbq("trackCustom", eventName, properties);
     }
-  }
+  },
 };
 
 // ========================================================
-// 3. DOM READY INITIALIZATION
+// 3. INITIALIZATION
 // ========================================================
-document.addEventListener('DOMContentLoaded', () => {
+
+document.addEventListener("DOMContentLoaded", () => {
   initIndustrySelector();
   initFaqAccordion();
   initPrivacyModal();
@@ -71,549 +67,978 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========================================================
-// 4. INDUSTRY SELECTOR SYNC (Section 4 -> Section 5)
+// 4. INDUSTRY SELECTOR
 // ========================================================
+
 function initIndustrySelector() {
-  const industryCards = document.querySelectorAll('.industry-select-card');
-  const businessTypeSelect = document.getElementById('businessType');
-  const industryBanner = document.getElementById('industry-banner');
-  const selectedIndustryLabel = document.getElementById('selected-industry-label');
-  const clearIndustryBtn = document.getElementById('clear-industry-btn');
+  const cards = document.querySelectorAll(
+    ".industry-select-card"
+  );
 
-  industryCards.forEach(card => {
-    card.addEventListener('click', () => {
-      const industry = card.getAttribute('data-industry');
+  const businessTypeSelect =
+    document.getElementById("businessType");
 
-      // Update card UI
-      industryCards.forEach(c => {
-        c.classList.remove('active-industry');
-        const indicator = c.querySelector('.select-indicator');
-        if (indicator) indicator.textContent = 'Select';
-      });
-      card.classList.add('active-industry');
-      const activeIndicator = card.querySelector('.select-indicator');
-      if (activeIndicator) activeIndicator.textContent = 'Selected ✓';
+  const industryBanner =
+    document.getElementById("industry-banner");
 
-      // Update Form Dropdown
+  const selectedIndustryLabel =
+    document.getElementById("selected-industry-label");
+
+  const clearIndustryBtn =
+    document.getElementById("clear-industry-btn");
+
+  function updateCards(selected) {
+    cards.forEach((card) => {
+      const active =
+        card.getAttribute("data-industry") === selected;
+
+      card.classList.toggle(
+        "active-industry",
+        active
+      );
+
+      const indicator =
+        card.querySelector(".select-indicator");
+
+      if (indicator) {
+        indicator.textContent =
+          active ? "Selected ✓" : "Select";
+      }
+    });
+  }
+
+  cards.forEach((card) => {
+    card.addEventListener("click", () => {
+      const industry =
+        card.getAttribute("data-industry");
+
+      updateCards(industry);
+
       if (businessTypeSelect) {
         businessTypeSelect.value = industry;
       }
 
-      // Show Banner
       if (industryBanner && selectedIndustryLabel) {
         selectedIndustryLabel.textContent = industry;
-        industryBanner.classList.remove('hidden');
+        industryBanner.classList.remove("hidden");
       }
 
-      // Track Event
-      window.LoopPulseAnalytics.track('industry_selected', {
-        industry: industry,
-        source: 'who_is_this_for_grid'
-      });
+      window.LoopPulseAnalytics.track(
+        "industry_selected",
+        {
+          industry,
+          source: "who_is_this_for_grid",
+        }
+      );
 
-      // Smooth scroll to form
-      const formSection = document.getElementById('research-form');
+      const formSection =
+        document.getElementById("research-form");
+
       if (formSection) {
-        formSection.scrollIntoView({ behavior: 'smooth' });
-        // Focus first field after scroll
+        formSection.scrollIntoView({
+          behavior: "smooth",
+        });
+
         setTimeout(() => {
-          const fullNameInput = document.getElementById('fullName');
-          if (fullNameInput) fullNameInput.focus();
+          const fullName =
+            document.getElementById("fullName");
+
+          if (fullName) fullName.focus();
         }, 500);
       }
     });
   });
 
-  // Clear / Reset Industry banner
   if (clearIndustryBtn) {
-    clearIndustryBtn.addEventListener('click', () => {
-      industryCards.forEach(c => {
-        c.classList.remove('active-industry');
-        const ind = c.querySelector('.select-indicator');
-        if (ind) ind.textContent = 'Select';
-      });
-      if (businessTypeSelect) businessTypeSelect.value = '';
-      if (industryBanner) industryBanner.classList.add('hidden');
-      
-      const whoSection = document.getElementById('who-is-this-for');
-      if (whoSection) whoSection.scrollIntoView({ behavior: 'smooth' });
+    clearIndustryBtn.addEventListener("click", () => {
+      updateCards("");
+
+      if (businessTypeSelect) {
+        businessTypeSelect.value = "";
+      }
+
+      if (industryBanner) {
+        industryBanner.classList.add("hidden");
+      }
+
+      const section =
+        document.getElementById("who-is-this-for");
+
+      if (section) {
+        section.scrollIntoView({
+          behavior: "smooth",
+        });
+      }
     });
   }
 
-  // When user manually selects from the dropdown, reflect back to cards
   if (businessTypeSelect) {
-    businessTypeSelect.addEventListener('change', (e) => {
-      const selected = e.target.value;
-      industryCards.forEach(c => {
-        if (c.getAttribute('data-industry') === selected) {
-          c.classList.add('active-industry');
-          const ind = c.querySelector('.select-indicator');
-          if (ind) ind.textContent = 'Selected ✓';
-        } else {
-          c.classList.remove('active-industry');
-          const ind = c.querySelector('.select-indicator');
-          if (ind) ind.textContent = 'Select';
+    businessTypeSelect.addEventListener(
+      "change",
+      () => {
+        const selected = businessTypeSelect.value;
+
+        updateCards(selected);
+
+        if (industryBanner && selectedIndustryLabel) {
+          selectedIndustryLabel.textContent = selected;
+          industryBanner.classList.remove("hidden");
         }
-      });
-      if (industryBanner && selectedIndustryLabel) {
-        selectedIndustryLabel.textContent = selected;
-        industryBanner.classList.remove('hidden');
       }
-    });
+    );
   }
 }
 
 // ========================================================
-// 5. FAQ ACCORDION ENGINE
+// 5. FAQ ACCORDION
 // ========================================================
+
 function initFaqAccordion() {
-  const faqToggles = document.querySelectorAll('.faq-toggle');
+  const toggles =
+    document.querySelectorAll(".faq-toggle");
 
-  faqToggles.forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
-      const contentId = toggle.getAttribute('aria-controls');
-      const content = document.getElementById(contentId);
-      const icon = toggle.querySelector('.faq-icon');
+  toggles.forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const expanded =
+        toggle.getAttribute("aria-expanded") === "true";
 
-      // Close all others
-      faqToggles.forEach(otherToggle => {
-        if (otherToggle !== toggle) {
-          otherToggle.setAttribute('aria-expanded', 'false');
-          const otherContentId = otherToggle.getAttribute('aria-controls');
-          const otherContent = document.getElementById(otherContentId);
-          const otherIcon = otherToggle.querySelector('.faq-icon');
-          if (otherContent) otherContent.classList.add('hidden');
-          if (otherIcon) otherIcon.classList.remove('rotate-180');
-        }
+      toggles.forEach((other) => {
+        const contentId =
+          other.getAttribute("aria-controls");
+
+        const content =
+          document.getElementById(contentId);
+
+        const icon =
+          other.querySelector(".faq-icon");
+
+        other.setAttribute(
+          "aria-expanded",
+          "false"
+        );
+
+        if (content) content.classList.add("hidden");
+        if (icon) icon.classList.remove("rotate-180");
       });
 
-      // Toggle current
-      if (isExpanded) {
-        toggle.setAttribute('aria-expanded', 'false');
-        if (content) content.classList.add('hidden');
-        if (icon) icon.classList.remove('rotate-180');
-      } else {
-        toggle.setAttribute('aria-expanded', 'true');
-        if (content) content.classList.remove('hidden');
-        if (icon) icon.classList.add('rotate-180');
+      if (!expanded) {
+        toggle.setAttribute(
+          "aria-expanded",
+          "true"
+        );
 
-        window.LoopPulseAnalytics.track('faq_opened', {
-          question: toggle.innerText.trim()
-        });
+        const content =
+          document.getElementById(
+            toggle.getAttribute("aria-controls")
+          );
+
+        const icon =
+          toggle.querySelector(".faq-icon");
+
+        if (content) {
+          content.classList.remove("hidden");
+        }
+
+        if (icon) {
+          icon.classList.add("rotate-180");
+        }
+
+        window.LoopPulseAnalytics.track(
+          "faq_opened",
+          {
+            question: toggle.innerText.trim(),
+          }
+        );
       }
     });
   });
 }
 
 // ========================================================
-// 6. PRIVACY MODAL ENGINE
+// 6. PRIVACY MODAL
 // ========================================================
+
 function initPrivacyModal() {
-  const modal = document.getElementById('privacyModal');
-  const openBtn = document.getElementById('openPrivacyModalBtn');
-  const closeBtn = document.getElementById('closePrivacyModalBtn');
-  const closeBottomBtn = document.getElementById('closePrivacyModalBottomBtn');
+  const modal =
+    document.getElementById("privacyModal");
+
+  const openBtn =
+    document.getElementById("openPrivacyModalBtn");
+
+  const closeBtn =
+    document.getElementById("closePrivacyModalBtn");
+
+  const closeBottomBtn =
+    document.getElementById(
+      "closePrivacyModalBottomBtn"
+    );
 
   function openModal() {
-    if (modal) {
-      modal.classList.remove('hidden');
-      document.body.classList.add('overflow-hidden');
-      window.LoopPulseAnalytics.track('privacy_modal_opened');
-    }
+    if (!modal) return;
+
+    modal.classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
+
+    window.LoopPulseAnalytics.track(
+      "privacy_modal_opened"
+    );
   }
 
   function closeModal() {
-    if (modal) {
-      modal.classList.add('hidden');
-      document.body.classList.remove('overflow-hidden');
-    }
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
   }
 
-  if (openBtn) openBtn.addEventListener('click', openModal);
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  if (closeBottomBtn) closeBottomBtn.addEventListener('click', closeModal);
+  if (openBtn) {
+    openBtn.addEventListener("click", openModal);
+  }
 
-  // Close on outside click
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeModal);
+  }
+
+  if (closeBottomBtn) {
+    closeBottomBtn.addEventListener(
+      "click",
+      closeModal
+    );
+  }
+
   if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        closeModal();
+      }
     });
   }
 
-  // Close on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
       closeModal();
     }
   });
 }
 
 // ========================================================
-// 7. FORM SUBMISSION & VALIDATION ENGINE
+// 7. CLOUDFLARE TURNSTILE
 // ========================================================
+
 let turnstileWidgetId = null;
+let turnstileRenderAttempts = 0;
 
-function renderTurnstile() {
-  const container = document.getElementById('turnstileWidget');
-  if (!container) return;
+function showTurnstileError(show = true) {
+  const error =
+    document.getElementById("turnstileError");
 
-  if (typeof window.turnstile !== 'undefined') {
-    if (turnstileWidgetId === null) {
-      try {
-        turnstileWidgetId = window.turnstile.render('#turnstileWidget', {
-          sitekey: CONFIG.TURNSTILE_SITE_KEY,
-          theme: 'light',
-          callback: function(token) {
-            const err = document.getElementById('turnstileError');
-            if (err) err.classList.add('hidden');
-          },
-          'error-callback': function() {
-            console.warn('[LoopPulse] Turnstile challenge encountered a temporary error.');
-          }
-        });
-      } catch (err) {
-        console.warn('[LoopPulse] Turnstile render notice:', err);
-      }
-    }
-  } else {
-    // Retry if script has not loaded yet
-    setTimeout(renderTurnstile, 300);
+  if (error) {
+    error.classList.toggle("hidden", !show);
   }
 }
 
+function renderTurnstile() {
+  const container =
+    document.getElementById("turnstileWidget");
+
+  if (!container) {
+    console.error(
+      "[LoopPulse] Turnstile container missing."
+    );
+    return;
+  }
+
+  if (turnstileWidgetId !== null) {
+    return;
+  }
+
+  if (
+    typeof window.turnstile === "undefined"
+  ) {
+    turnstileRenderAttempts++;
+
+    if (turnstileRenderAttempts <= 30) {
+      setTimeout(renderTurnstile, 300);
+    } else {
+      console.error(
+        "[LoopPulse] Turnstile failed to load."
+      );
+
+      showTurnstileError(true);
+    }
+
+    return;
+  }
+
+  try {
+    turnstileWidgetId = window.turnstile.render(
+      "#turnstileWidget",
+      {
+        sitekey: CONFIG.TURNSTILE_SITE_KEY,
+        theme: "light",
+
+        callback() {
+          showTurnstileError(false);
+        },
+
+        "error-callback"() {
+          showTurnstileError(true);
+
+          console.warn(
+            "[LoopPulse] Turnstile verification error."
+          );
+        },
+
+        "expired-callback"() {
+          showTurnstileError(true);
+        },
+
+        "timeout-callback"() {
+          showTurnstileError(true);
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "[LoopPulse] Turnstile render error:",
+      error
+    );
+
+    showTurnstileError(true);
+  }
+}
+
+function getTurnstileToken() {
+  if (
+    typeof window.turnstile === "undefined" ||
+    turnstileWidgetId === null
+  ) {
+    return "";
+  }
+
+  try {
+    return (
+      window.turnstile.getResponse(
+        turnstileWidgetId
+      ) || ""
+    );
+  } catch (error) {
+    console.warn(
+      "[LoopPulse] Cannot retrieve Turnstile token:",
+      error
+    );
+
+    return "";
+  }
+}
+
+function resetTurnstile() {
+  if (
+    typeof window.turnstile === "undefined" ||
+    turnstileWidgetId === null
+  ) {
+    return;
+  }
+
+  try {
+    window.turnstile.reset(
+      turnstileWidgetId
+    );
+  } catch (error) {
+    console.warn(
+      "[LoopPulse] Turnstile reset error:",
+      error
+    );
+  }
+}
+
+// ========================================================
+// 8. FORM ENGINE
+// ========================================================
+
 function initFormEngine() {
-  const form = document.getElementById('marketResearchForm');
-  const submitBtn = document.getElementById('submitBtn');
-  const submitBtnText = document.getElementById('submitBtnText');
-  const submitSpinner = document.getElementById('submitSpinner');
-  const submitArrow = document.getElementById('submitArrow');
-  const successContainer = document.getElementById('submissionSuccess');
-  const responseRefId = document.getElementById('responseRefId');
-  const resetFormBtn = document.getElementById('resetFormBtn');
-  const submissionError = document.getElementById('submissionError');
-  const submissionErrorMessage = document.getElementById('submissionErrorMessage');
+  const form =
+    document.getElementById("marketResearchForm");
 
   if (!form) return;
 
-  // Initialize Turnstile widget
+  const submitBtn =
+    document.getElementById("submitBtn");
+
+  const submitBtnText =
+    document.getElementById("submitBtnText");
+
+  const submitSpinner =
+    document.getElementById("submitSpinner");
+
+  const submitArrow =
+    document.getElementById("submitArrow");
+
+  const successContainer =
+    document.getElementById("submissionSuccess");
+
+  const responseRefId =
+    document.getElementById("responseRefId");
+
+  const resetFormBtn =
+    document.getElementById("resetFormBtn");
+
+  const submissionError =
+    document.getElementById("submissionError");
+
+  const submissionErrorMessage =
+    document.getElementById(
+      "submissionErrorMessage"
+    );
+
+  let isSubmitting = false;
+  let formStarted = false;
+
+  // Reuse reference ID after uncertain network errors.
+  // The backend must enforce uniqueness/idempotency.
+  let pendingReferenceId = null;
+
   renderTurnstile();
 
-  // Submission in-flight lock to prevent double-submits
-  let isSubmitting = false;
-
-  // Track first interaction with the form
-  let formStarted = false;
-  form.addEventListener('focusin', () => {
+  form.addEventListener("focusin", () => {
     if (!formStarted) {
       formStarted = true;
-      window.LoopPulseAnalytics.track('form_interaction_started');
+
+      window.LoopPulseAnalytics.track(
+        "form_interaction_started"
+      );
     }
   });
 
-  // Validation helper
-  function validateField(input, errorElement, condition) {
-    if (!condition) {
-      input.classList.add('input-error');
-      if (errorElement) errorElement.classList.remove('hidden');
-      return false;
+  function validateField(
+    input,
+    errorElement,
+    condition
+  ) {
+    if (!input) return false;
+
+    input.classList.toggle(
+      "input-error",
+      !condition
+    );
+
+    if (errorElement) {
+      errorElement.classList.toggle(
+        "hidden",
+        condition
+      );
+    }
+
+    return condition;
+  }
+
+  function fieldError(input) {
+    return input?.parentElement?.querySelector(
+      ".error-msg"
+    );
+  }
+
+  function showError(message) {
+    if (submissionErrorMessage) {
+      submissionErrorMessage.textContent = message;
+    }
+
+    if (submissionError) {
+      submissionError.classList.remove("hidden");
+
+      submissionError.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     } else {
-      input.classList.remove('input-error');
-      if (errorElement) errorElement.classList.add('hidden');
-      return true;
+      alert(message);
     }
   }
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  function setSubmitting(value) {
+    isSubmitting = value;
+
+    if (submitBtn) {
+      submitBtn.disabled = value;
+    }
+
+    if (submitBtnText) {
+      submitBtnText.textContent = value
+        ? "Submitting Responses..."
+        : "Submit Research Response";
+    }
+
+    if (submitSpinner) {
+      submitSpinner.classList.toggle(
+        "hidden",
+        !value
+      );
+    }
+
+    if (submitArrow) {
+      submitArrow.classList.toggle(
+        "hidden",
+        value
+      );
+    }
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    // Prevent repeated clicks while request is running.
+    if (isSubmitting) return;
 
     let isValid = true;
 
-    // 1. Full name (2-100 chars)
-    const fullName = document.getElementById('fullName');
-    const nameValid = validateField(
-      fullName, 
-      fullName.parentElement.querySelector('.error-msg'), 
-      fullName.value.trim().length >= 2 && fullName.value.trim().length <= 100
-    );
-    if (!nameValid) isValid = false;
+    // ----------------------------------------------------
+    // Field validation
+    // ----------------------------------------------------
 
-    // 2. Business name (2-100 chars)
-    const businessName = document.getElementById('businessName');
-    const bizValid = validateField(
-      businessName, 
-      businessName.parentElement.querySelector('.error-msg'), 
-      businessName.value.trim().length >= 2 && businessName.value.trim().length <= 100
-    );
-    if (!bizValid) isValid = false;
+    const fullName =
+      document.getElementById("fullName");
 
-    // 3. Business type
-    const businessType = document.getElementById('businessType');
-    const typeValid = validateField(
-      businessType, 
-      businessType.parentElement.querySelector('.error-msg'), 
-      businessType.value !== ''
-    );
-    if (!typeValid) isValid = false;
+    const businessName =
+      document.getElementById("businessName");
 
-    // 4. City (2-100 chars)
-    const city = document.getElementById('city');
-    const cityValid = validateField(
-      city, 
-      city.parentElement.querySelector('.error-msg'), 
-      city.value.trim().length >= 2 && city.value.trim().length <= 100
-    );
-    if (!cityValid) isValid = false;
+    const businessType =
+      document.getElementById("businessType");
 
-    // 5. Phone (10 digits starting with 6, 7, 8, 9 with optional +91 or 0 prefix)
-    const phone = document.getElementById('phone');
-    const rawPhoneVal = phone.value.trim();
-    const phonePattern = /^(?:(?:\+91|0)[-\s]?)?[6-9]\d{4}[-\s]?\d{5}$/;
-    const phoneValid = validateField(
-      phone, 
-      phone.parentElement.parentElement.querySelector('.error-msg'), 
-      phonePattern.test(rawPhoneVal)
-    );
-    if (!phoneValid) isValid = false;
+    const city =
+      document.getElementById("city");
 
-    // 7. Monthly enquiries (Radio)
-    const monthlyEnquiries = form.querySelector('input[name="monthlyEnquiries"]:checked');
-    const enquiriesError = form.querySelector('.error-msg-enquiries');
-    if (!monthlyEnquiries) {
-      if (enquiriesError) enquiriesError.classList.remove('hidden');
-      isValid = false;
-    } else {
-      if (enquiriesError) enquiriesError.classList.add('hidden');
-    }
+    const phone =
+      document.getElementById("phone");
 
-    // 8. Management Method (Radio)
-    const managementMethod = form.querySelector('input[name="managementMethod"]:checked');
-    const methodError = form.querySelector('.error-msg-method');
-    if (!managementMethod) {
-      if (methodError) methodError.classList.remove('hidden');
-      isValid = false;
-    } else {
-      if (methodError) methodError.classList.add('hidden');
-    }
+    const email =
+      document.getElementById("email");
 
-    // 9. Biggest challenge (Textarea, 5-1000 chars)
-    const biggestChallenge = document.getElementById('biggestChallenge');
-    const challengeValid = validateField(
-      biggestChallenge, 
-      biggestChallenge.parentElement.querySelector('.error-msg'), 
-      biggestChallenge.value.trim().length >= 5 && biggestChallenge.value.trim().length <= 1000
-    );
-    if (!challengeValid) isValid = false;
+    const biggestChallenge =
+      document.getElementById("biggestChallenge");
 
-    // 10. Consider testing (Radio)
-    const considerTesting = form.querySelector('input[name="considerTesting"]:checked');
-    const testingError = form.querySelector('.error-msg-testing');
-    if (!considerTesting) {
-      if (testingError) testingError.classList.remove('hidden');
-      isValid = false;
-    } else {
-      if (testingError) testingError.classList.add('hidden');
-    }
+    const consent =
+      document.getElementById("consentCheckbox");
 
-    // Consent Checkbox (UNCHECKED by default, must be checked to proceed)
-    const consent = document.getElementById('consentCheckbox');
-    const consentError = form.querySelector('.error-msg-consent');
-    if (!consent.checked) {
-      if (consentError) consentError.classList.remove('hidden');
-      isValid = false;
-    } else {
-      if (consentError) consentError.classList.add('hidden');
-    }
-
-    // Cloudflare Turnstile Verification Token Check
-    let turnstileToken = '';
-    const turnstileWidgetEl = document.getElementById('turnstileWidget');
-    const turnstileError = document.getElementById('turnstileError');
-    if (turnstileWidgetEl && typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
-      turnstileToken = window.turnstile.getResponse(turnstileWidgetId) || '';
-      if (!turnstileToken) {
-        if (turnstileError) turnstileError.classList.remove('hidden');
-        isValid = false;
-      } else {
-        if (turnstileError) turnstileError.classList.add('hidden');
-      }
-    }
-
-    // If invalid, scroll to the first invalid field
-    if (!isValid) {
-      const firstError = form.querySelector('.input-error, .text-rose-500:not(.hidden)');
-      if (firstError) {
-        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      window.LoopPulseAnalytics.track('form_validation_failed');
+    if (
+      !fullName ||
+      !businessName ||
+      !businessType ||
+      !city ||
+      !phone ||
+      !email ||
+      !biggestChallenge ||
+      !consent
+    ) {
+      showError(
+        "The form is not configured correctly. Please refresh the page."
+      );
       return;
     }
 
-    // ========================================================
-    // BUILD SUBMISSION DATA OBJECT (CAMELCASE PROPERTIES)
-    // ========================================================
+    const nameValue = fullName.value.trim();
+
+    if (
+      !validateField(
+        fullName,
+        fieldError(fullName),
+        nameValue.length >= 2 &&
+          nameValue.length <= 100
+      )
+    ) {
+      isValid = false;
+    }
+
+    const businessValue =
+      businessName.value.trim();
+
+    if (
+      !validateField(
+        businessName,
+        fieldError(businessName),
+        businessValue.length >= 2 &&
+          businessValue.length <= 100
+      )
+    ) {
+      isValid = false;
+    }
+
+    if (
+      !validateField(
+        businessType,
+        fieldError(businessType),
+        businessType.value !== ""
+      )
+    ) {
+      isValid = false;
+    }
+
+    const cityValue = city.value.trim();
+
+    if (
+      !validateField(
+        city,
+        fieldError(city),
+        cityValue.length >= 2 &&
+          cityValue.length <= 100
+      )
+    ) {
+      isValid = false;
+    }
+
+    const rawPhone = phone.value.trim();
+
+    const phonePattern =
+      /^(?:(?:\+91|0)[-\s]?)?[6-9]\d{4}[-\s]?\d{5}$/;
+
+    if (
+      !validateField(
+        phone,
+        phone.parentElement?.parentElement?.querySelector(
+          ".error-msg"
+        ),
+        phonePattern.test(rawPhone)
+      )
+    ) {
+      isValid = false;
+    }
+
+    const emailValue = email.value.trim();
+
+    if (
+      emailValue &&
+      (
+        emailValue.length > 100 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          emailValue
+        )
+      )
+    ) {
+      isValid = false;
+      email.classList.add("input-error");
+    } else {
+      email.classList.remove("input-error");
+    }
+
+    const monthlyEnquiries = form.querySelector(
+      'input[name="monthlyEnquiries"]:checked'
+    );
+
+    const enquiriesError = form.querySelector(
+      ".error-msg-enquiries"
+    );
+
+    if (!monthlyEnquiries) {
+      isValid = false;
+      enquiriesError?.classList.remove("hidden");
+    } else {
+      enquiriesError?.classList.add("hidden");
+    }
+
+    const managementMethod = form.querySelector(
+      'input[name="managementMethod"]:checked'
+    );
+
+    const methodError = form.querySelector(
+      ".error-msg-method"
+    );
+
+    if (!managementMethod) {
+      isValid = false;
+      methodError?.classList.remove("hidden");
+    } else {
+      methodError?.classList.add("hidden");
+    }
+
+    const challengeValue =
+      biggestChallenge.value.trim();
+
+    if (
+      !validateField(
+        biggestChallenge,
+        fieldError(biggestChallenge),
+        challengeValue.length >= 5 &&
+          challengeValue.length <= 1000
+      )
+    ) {
+      isValid = false;
+    }
+
+    const considerTesting = form.querySelector(
+      'input[name="considerTesting"]:checked'
+    );
+
+    const testingError = form.querySelector(
+      ".error-msg-testing"
+    );
+
+    if (!considerTesting) {
+      isValid = false;
+      testingError?.classList.remove("hidden");
+    } else {
+      testingError?.classList.add("hidden");
+    }
+
+    const consentError = form.querySelector(
+      ".error-msg-consent"
+    );
+
+    if (!consent.checked) {
+      isValid = false;
+      consentError?.classList.remove("hidden");
+    } else {
+      consentError?.classList.add("hidden");
+    }
+
+    // ----------------------------------------------------
+    // Mandatory Turnstile validation
+    // ----------------------------------------------------
+
+    const turnstileToken = getTurnstileToken();
+
+    if (!turnstileToken) {
+      isValid = false;
+      showTurnstileError(true);
+    } else {
+      showTurnstileError(false);
+    }
+
+    if (!isValid) {
+      const firstError = form.querySelector(
+        ".input-error, .text-rose-500:not(.hidden)"
+      );
+
+      if (firstError) {
+        firstError.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else {
+        showError(
+          "Please complete all required fields and security verification."
+        );
+      }
+
+      window.LoopPulseAnalytics.track(
+        "form_validation_failed"
+      );
+
+      return;
+    }
+
+    // ----------------------------------------------------
+    // Prepare payload
+    // ----------------------------------------------------
+
+    if (!pendingReferenceId) {
+      pendingReferenceId =
+        "LP-" +
+        crypto.randomUUID()
+          .replace(/-/g, "")
+          .slice(0, 12)
+          .toUpperCase();
+    }
+
     const payload = {
-      referenceId: 'LP-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-      fullName: fullName.value.trim(),
-      businessName: businessName.value.trim(),
+      referenceId: pendingReferenceId,
+      fullName: nameValue,
+      businessName: businessValue,
       businessType: businessType.value,
-      city: city.value.trim(),
-      phone: '+91' + rawPhoneVal.replace(/\D/g, '').slice(-10),
-      email: document.getElementById('email').value.trim() || null,
+      city: cityValue,
+      phone:
+        "+91" +
+        rawPhone.replace(/\D/g, "").slice(-10),
+      email: emailValue || null,
       monthlyEnquiries: monthlyEnquiries.value,
       managementMethod: managementMethod.value,
-      biggestChallenge: biggestChallenge.value.trim(),
+      biggestChallenge: challengeValue,
       considerTesting: considerTesting.value,
-      preferredContact: (form.querySelector('input[name="preferredContact"]:checked') || {}).value || 'WhatsApp',
+      preferredContact:
+        form.querySelector(
+          'input[name="preferredContact"]:checked'
+        )?.value || "WhatsApp",
       consent: true,
-      submittedAt: new Date().toISOString(),
-      cfTurnstileToken: turnstileToken
+      cfTurnstileToken: turnstileToken,
     };
 
-    // Prevent duplicate submissions and trigger UI loading state
-    isSubmitting = true;
-    submitBtn.disabled = true;
-    submitBtnText.textContent = 'Submitting Responses...';
-    submitSpinner.classList.remove('hidden');
-    submitArrow.classList.add('hidden');
-    if (submissionError) submissionError.classList.add('hidden');
+    setSubmitting(true);
+
+    if (submissionError) {
+      submissionError.classList.add("hidden");
+    }
+
+    // ----------------------------------------------------
+    // Submit to Supabase
+    // ----------------------------------------------------
 
     try {
-      // POST to Supabase Edge Function
-      const response = await fetch(CONFIG.SUPABASE_EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': CONFIG.SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${CONFIG.SUPABASE_PUBLISHABLE_KEY}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(
+        CONFIG.SUPABASE_EDGE_FUNCTION_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: CONFIG.SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      let result;
-      const responseText = await response.text();
+      let result = null;
+
       try {
-        result = JSON.parse(responseText);
-      } catch (parseErr) {
-        result = { message: responseText };
+        result = await response.json();
+      } catch {
+        throw new Error(
+          "Unable to confirm submission. Please contact us before submitting again."
+        );
       }
 
-      if (!response.ok || (result && result.success === false)) {
-        let userMessage = 'Unable to submit your responses. Please try again.';
-        if (response.status === 429) {
-          userMessage = 'Too many submission attempts. Please wait a few minutes before trying again.';
-        } else if (response.status === 403) {
-          userMessage = 'Security check failed. Please refresh the page and complete the verification.';
+      if (
+        !response.ok ||
+        result?.success !== true ||
+        typeof result.referenceId !== "string"
+      ) {
+        let message =
+          "Unable to submit your responses. Please try again.";
+
+        if (response.status === 403) {
+          message =
+            "Security verification failed. Please complete the challenge again.";
         } else if (response.status === 413) {
-          userMessage = 'Submission exceeds maximum allowed size. Please shorten your answers.';
-        } else if (result && (result.error || result.message)) {
-          userMessage = result.error || result.message;
+          message =
+            "Your submission is too large. Please shorten your answers.";
+        } else if (response.status === 429) {
+          message =
+            "Too many attempts. Please wait before trying again.";
+        } else if (response.status >= 500) {
+          message =
+            "Server unavailable. Please try again later.";
+        } else if (
+          typeof result?.error === "string"
+        ) {
+          message = result.error;
         }
-        throw new Error(userMessage);
+
+        throw new Error(message);
       }
 
-      // Insertion confirmed by Supabase!
-      const confirmedReferenceId = (result && result.referenceId) || payload.referenceId;
+      // --------------------------------------------------
+      // Confirmed success
+      // --------------------------------------------------
 
-      // Persist confirmed submission to local client history
-      try {
-        const existing = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || '[]');
-        existing.push({ 
-          ...payload, 
-          referenceId: confirmedReferenceId, 
-          syncedAt: new Date().toISOString() 
-        });
-        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(existing));
-      } catch (storageErr) {
-        console.warn('[LoopPulse] Local history save error:', storageErr);
+      const confirmedReferenceId =
+        result.referenceId;
+
+      pendingReferenceId = null;
+
+      // No customer PII or CAPTCHA tokens stored locally.
+
+      window.LoopPulseAnalytics.track(
+        "research_form_submitted",
+        {
+          industry: payload.businessType,
+          monthly_volume: payload.monthlyEnquiries,
+          testing_interest: payload.considerTesting,
+          city: payload.city,
+          reference_id: confirmedReferenceId,
+        }
+      );
+
+      form.classList.add("hidden");
+
+      if (responseRefId) {
+        responseRefId.textContent =
+          confirmedReferenceId;
       }
 
-      // Trigger Analytics Conversion Event
-      window.LoopPulseAnalytics.track('research_form_submitted', {
-        industry: payload.businessType,
-        monthly_volume: payload.monthlyEnquiries,
-        testing_interest: payload.considerTesting,
-        city: payload.city,
-        reference_id: confirmedReferenceId
-      });
-
-      // Display Success State
-      form.classList.add('hidden');
-      if (responseRefId) responseRefId.textContent = confirmedReferenceId;
       if (successContainer) {
-        successContainer.classList.remove('hidden');
-        successContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+        successContainer.classList.remove("hidden");
 
+        successContainer.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
     } catch (error) {
-      console.error('[LoopPulse] Supabase submission notice:', error.message || error);
-      
-      // Reset Turnstile token on error so user can obtain a fresh token
-      if (typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
-        try { window.turnstile.reset(turnstileWidgetId); } catch (_) {}
-      }
+      console.error(
+        "[LoopPulse] Submission error:",
+        error
+      );
 
-      // Display clear error notification and keep form interactive
-      if (submissionError) {
-        if (submissionErrorMessage) {
-          submissionErrorMessage.textContent = error.message || 'Unable to connect to our server. Please check your connection and try again.';
+      resetTurnstile();
+
+      showError(
+        error?.message ||
+          "Unable to connect to the server. Please try again later."
+      );
+
+      window.LoopPulseAnalytics.track(
+        "research_form_submission_failed",
+        {
+          error: error?.message || "Unknown error",
         }
-        submissionError.classList.remove('hidden');
-        submissionError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        alert(error.message || 'Unable to submit your responses. Please try again.');
-      }
-
-      window.LoopPulseAnalytics.track('research_form_submission_failed', {
-        error: error.message
-      });
-
+      );
     } finally {
-      isSubmitting = false;
-      submitBtn.disabled = false;
-      submitBtnText.textContent = 'Submit Research Response';
-      submitSpinner.classList.add('hidden');
-      submitArrow.classList.remove('hidden');
+      setSubmitting(false);
     }
   });
 
-  // Reset Form for Testing
+  // ======================================================
+  // RESET FORM
+  // ======================================================
+
   if (resetFormBtn) {
-    resetFormBtn.addEventListener('click', () => {
+    resetFormBtn.addEventListener("click", () => {
       form.reset();
-      if (submissionError) submissionError.classList.add('hidden');
-      const turnstileError = document.getElementById('turnstileError');
-      if (turnstileError) turnstileError.classList.add('hidden');
-      if (typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
-        try { window.turnstile.reset(turnstileWidgetId); } catch (_) {}
+
+      pendingReferenceId = null;
+      formStarted = false;
+
+      if (submissionError) {
+        submissionError.classList.add("hidden");
       }
-      form.classList.remove('hidden');
-      successContainer.classList.add('hidden');
-      form.scrollIntoView({ behavior: 'smooth' });
+
+      showTurnstileError(false);
+      resetTurnstile();
+
+      form.classList.remove("hidden");
+
+      if (successContainer) {
+        successContainer.classList.add("hidden");
+      }
+
+      form.scrollIntoView({
+        behavior: "smooth",
+      });
     });
   }
 }
 
 // ========================================================
-// 8. CTA EVENT TRACKING
+// 9. CTA TRACKING
 // ========================================================
+
 function initCtaTracking() {
-  const trackedButtons = document.querySelectorAll('[data-analytics]');
-  trackedButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const actionName = btn.getAttribute('data-analytics');
-      window.LoopPulseAnalytics.track('cta_clicked', {
-        action: actionName,
-        label: btn.innerText.trim(),
-        target: btn.getAttribute('href') || 'button'
-      });
+  const buttons =
+    document.querySelectorAll("[data-analytics]");
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => {
+      window.LoopPulseAnalytics.track(
+        "cta_clicked",
+        {
+          action:
+            button.getAttribute("data-analytics"),
+          label: button.innerText.trim(),
+          target:
+            button.getAttribute("href") ||
+            "button",
+        }
+      );
     });
   });
 }
 
-// Global debug helper to inspect stored validation responses in browser console
-window.getLoopPulseSubmissions = function() {
-  const data = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || '[]');
-  console.table(data);
-  return data;
-};
+// ========================================================
+// END OF FILE
+// ========================================================

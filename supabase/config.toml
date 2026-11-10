@@ -1,0 +1,2 @@
+[functions.research_inquiries]
+verify_jwt = false

@@ -1,12 +1,14 @@
 // ==============================================================================
 // LoopPulse.in - Research Inquiries Supabase Edge Function
-// Security Hardened v2: Fail-Closed Turnstile, Keyed HMAC Rate Limiting,
-// Trusted Ingress IP Verification, XSS & CRLF Prevention, Strict Validation
+// Security Hardened v3: Fail-Closed Turnstile, Strict CORS,
+// HTML Escaping, Input Validation, Supabase Service Role Only
 // ==============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const MAX_BODY_BYTES = 16 * 1024; // 16 KB request body limit
+const MAX_TURNSTILE_TOKEN_LENGTH = 2048;
+const TURNSTILE_TIMEOUT_MS = 5000;
 
 // 1. Strict Exact CORS Origins Allowlist (No wildcards or substring matching)
 const ALLOWED_ORIGINS = new Set([
@@ -19,52 +21,21 @@ const ALLOWED_ORIGINS = new Set([
 // 2. Strict Exact Cloudflare Turnstile Hostnames Allowlist
 const ALLOWED_TURNSTILE_HOSTNAMES = new Set([
   "looppulse.in",
-  "www.looppulse.in",
-  "localhost",
-  "127.0.0.1"
+  "www.looppulse.in"
 ]);
 
-// Helper to determine CORS headers based on request Origin
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const isAllowed = ALLOWED_ORIGINS.has(origin);
-
+// CORS is a browser restriction, not authentication. Turnstile is enforced separately.
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin");
   return {
-    "Access-Control-Allow-Origin": isAllowed ? origin : "https://looppulse.in",
+    ...(origin && ALLOWED_ORIGINS.has(origin)
+      ? { "Access-Control-Allow-Origin": origin }
+      : {}),
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, X-Client-Info",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
-}
-
-// Security: IP Validator for IPv4 and IPv6 format
-const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-const IPV6_REGEX = /^[0-9a-fA-F:.]+$/;
-
-function isValidIp(ip: string): boolean {
-  if (!ip || ip.length > 45) return false;
-  return IPV4_REGEX.test(ip) || IPV6_REGEX.test(ip);
-}
-
-// Trusted Client IP extraction for Supabase Edge Functions
-// In Supabase, cf-connecting-ip is set by the Cloudflare ingress edge and cannot be spoofed by clients.
-// If cf-connecting-ip is absent, fallback to a shared unverified bucket to prevent rate-limit bypass.
-function extractClientIp(req: Request): string {
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp && isValidIp(cfIp.trim())) {
-    return cfIp.trim();
-  }
-
-  // Local development fallback
-  const origin = req.headers.get("origin") || "";
-  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-    return "127.0.0.1";
-  }
-
-  // Unverified ingress: All unverified/proxy-less requests map to a shared identity
-  // This prevents attackers from spoofing arbitrary X-Forwarded-For headers to evade rate limits.
-  return "unverified_ingress";
 }
 
 // Read body stream with strict 16 KB limit before buffering
@@ -104,45 +75,37 @@ async function readBodyWithLimit(req: Request, maxBytes: number): Promise<string
 
 // Server-side Cloudflare Turnstile token validation (Fail-Closed)
 async function verifyTurnstileToken(
-  token: string, 
-  clientIp: string, 
+  token: string,
   turnstileSecret: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const formData = new URLSearchParams();
     formData.append("secret", turnstileSecret);
     formData.append("response", token);
-    if (clientIp !== "unverified_ingress") {
-      formData.append("remoteip", clientIp);
-    }
-
+    // remoteip is intentionally omitted: there is no verified client IP source.
     const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formData.toString()
+      body: formData.toString(),
+      signal: AbortSignal.timeout(TURNSTILE_TIMEOUT_MS)
     });
 
     if (!verifyRes.ok) {
-      return { success: false, error: "Turnstile verify endpoint HTTP status " + verifyRes.status };
+      return { success: false, error: `Siteverify HTTP ${verifyRes.status}` };
     }
 
     const data = await verifyRes.json();
-    if (!data.success) {
-      const errorCodes = Array.isArray(data["error-codes"]) ? data["error-codes"].join(", ") : "invalid token";
-      return { success: false, error: "Turnstile verification rejected: " + errorCodes };
+    if (data?.success !== true) {
+      return { success: false, error: "Cloudflare rejected token" };
     }
 
-    // Hostname check: strictly fail-closed if hostname is missing or not in explicit allowlist
-    if (!data.hostname || !ALLOWED_TURNSTILE_HOSTNAMES.has(data.hostname)) {
-      return { 
-        success: false, 
-        error: `Unauthorized or missing Turnstile hostname: ${data.hostname || "none"}` 
-      };
+    if (typeof data.hostname !== "string" || !ALLOWED_TURNSTILE_HOSTNAMES.has(data.hostname)) {
+      return { success: false, error: "Turnstile hostname not authorized" };
     }
 
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: "Turnstile verification exception: " + (err.message || String(err)) };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Siteverify error" };
   }
 }
 
@@ -209,6 +172,16 @@ const INDIAN_PHONE_REGEX = /^(?:(?:\+91|0)[-\s]?)?[6-9]\d{4}[-\s]?\d{5}$/;
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
+  // Reject requests declaring a browser Origin that is not explicitly allowed.
+  // Requests without Origin still require a valid, single-use Turnstile token.
+  const origin = req.headers.get("origin");
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return new Response(JSON.stringify({ error: "Origin not allowed." }), {
+      status: 403,
+      headers: { "Content-Type": "application/json", ...corsHeaders }
+    });
+  }
+
   // 1. Handle CORS Preflight OPTIONS
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -224,8 +197,6 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
   }
-
-  const clientIp = extractClientIp(req);
 
   try {
     // 2. Read Request Body with 16 KB Limit (Streaming)
@@ -259,6 +230,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      return new Response(JSON.stringify({ error: "Request body must be a JSON object." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+    }
+
     // 3. Supabase Client Initialization using SERVICE_ROLE_KEY
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || "";
@@ -275,48 +253,7 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    // 4. Atomic PostgreSQL Rate Limiting (Fail-Closed)
-    const { data: rateData, error: rateError } = await supabase.rpc("check_rate_limit", {
-      p_ip: clientIp,
-      p_max_requests: 5,
-      p_window_seconds: 600
-    });
-
-    if (rateError) {
-      console.error("[research_inquiries] Rate limit RPC error:", rateError.message);
-      return new Response(
-        JSON.stringify({ error: "Security verification unavailable. Please try again later." }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    const rateResult = Array.isArray(rateData) ? rateData[0] : rateData;
-    if (!rateResult || typeof rateResult.allowed !== "boolean") {
-      console.error("[research_inquiries] Malformed rate limit RPC response:", rateData);
-      return new Response(
-        JSON.stringify({ error: "Security check validation failed. Please try again." }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (rateResult.allowed !== true) {
-      const retryAfter = typeof rateResult.reset_seconds === "number" ? rateResult.reset_seconds : 600;
-      return new Response(
-        JSON.stringify({
-          error: "Too many submission attempts. Please wait a few minutes before trying again."
-        }),
-        {
-          status: 429,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(retryAfter),
-            ...corsHeaders
-          }
-        }
-      );
-    }
-
-    // 5. Cloudflare Turnstile Token Verification (Strictly Fail-Closed)
+    // 4. Cloudflare Turnstile Token Verification (Strictly Fail-Closed)
     const turnstileSecret = Deno.env.get("TURNSTILE_SECRET_KEY");
     if (!turnstileSecret) {
       console.error("[research_inquiries] Server configuration error: missing TURNSTILE_SECRET_KEY.");
@@ -334,7 +271,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp, turnstileSecret);
+    if (turnstileToken.length > MAX_TURNSTILE_TOKEN_LENGTH) {
+      return new Response(JSON.stringify({ error: "Security verification token is invalid." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+    }
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken, turnstileSecret);
     if (!turnstileResult.success) {
       console.warn("[research_inquiries] Turnstile rejection:", turnstileResult.error);
       return new Response(
@@ -343,7 +287,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 6. Strict Input Validation & Sanitization
+    // 5. Strict Input Validation & Sanitization
     const fullName = typeof payload.fullName === "string" ? payload.fullName.trim() : "";
     const businessName = typeof payload.businessName === "string" ? payload.businessName.trim() : "";
     const businessType = typeof payload.businessType === "string" ? payload.businessType.trim() : "";
@@ -356,13 +300,9 @@ Deno.serve(async (req: Request) => {
     const considerTesting = typeof payload.considerTesting === "string" ? payload.considerTesting.trim() : "";
     const preferredContact = typeof payload.preferredContact === "string" ? payload.preferredContact.trim() : "WhatsApp";
     const consent = payload.consent === true;
-    let referenceId = typeof payload.referenceId === "string" ? payload.referenceId.trim() : "";
+    const referenceId = "LP-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
 
     // Validation checks
-    if (!referenceId || !/^LP-[A-Z0-9]{4,12}$/.test(referenceId)) {
-      referenceId = "LP-" + Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
     if (fullName.length < 2 || fullName.length > 100) {
       return new Response(JSON.stringify({ error: "Full name must be between 2 and 100 characters." }), {
         status: 400,
@@ -456,7 +396,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 7. Insert Verified Record into Supabase PostgreSQL
+    // 6. Insert Verified Record into Supabase PostgreSQL
     const dbRecord = {
       reference_id: referenceId,
       full_name: fullName,
@@ -488,7 +428,7 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[research_inquiries] Successfully recorded inquiry: ${referenceId}`);
 
-    // 8. Zoho ZeptoMail Email Notification (Escaped HTML & Sanitized Subject Header)
+    // 7. Zoho ZeptoMail Email Notification (Escaped HTML & Sanitized Subject Header)
     const zeptoToken = Deno.env.get("ZEPTOMAIL_API_TOKEN");
     if (zeptoToken) {
       try {
@@ -549,8 +489,7 @@ Deno.serve(async (req: Request) => {
         });
 
         if (!zeptoRes.ok) {
-          const zeptoErrText = await zeptoRes.text();
-          console.error("[research_inquiries] ZeptoMail dispatch failed. Status:", zeptoRes.status, "Ref:", cleanSubjectRef, "Err:", zeptoErrText);
+          console.error("[research_inquiries] ZeptoMail dispatch failed. Status:", zeptoRes.status, "Ref:", cleanSubjectRef);
         } else {
           console.log(`[research_inquiries] ZeptoMail notification sent successfully for ${referenceId}`);
         }
@@ -561,7 +500,7 @@ Deno.serve(async (req: Request) => {
       console.error("[research_inquiries] ZEPTOMAIL_API_TOKEN is not configured; email notification skipped.");
     }
 
-    // 9. Successful Response
+    // 8. Successful Response
     return new Response(
       JSON.stringify({
         success: true,
