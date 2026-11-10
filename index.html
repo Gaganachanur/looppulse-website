@@ -122,10 +122,44 @@
         }
       }
     </script>
+
+    <!-- Mobile overflow safeguards -->
+    <style>
+      html {
+        max-width: 100%;
+        overflow-x: clip;
+      }
+
+      body,
+      main,
+      section,
+      header,
+      footer {
+        max-width: 100%;
+      }
+
+      img,
+      video,
+      iframe,
+      svg {
+        max-width: 100%;
+      }
+
+      #turnstileWidget {
+        max-width: 100%;
+      }
+
+      @media (max-width: 359px) {
+        #main-nav a[data-analytics="nav_cta"] {
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
+      }
+    </style>
   </head>
-  <body
-    class="bg-[#F8FAFC] text-[#0F172A] font-sans antialiased selection:bg-brand-blue selection:text-white"
-  >
+  
+<body class="bg-[#F8FAFC] text-[#0F172A] font-sans antialiased overflow-x-clip selection:bg-brand-blue selection:text-white">
+
     <!-- TOP BANNER: Transparent Market Validation Notice -->
     <aside
       class="bg-gradient-to-r from-brand-navy via-[#1E293B] to-brand-navy text-white text-xs sm:text-sm py-2 px-4 border-b border-slate-800"
@@ -241,13 +275,15 @@
         </nav>
 
         <!-- CTA in Nav -->
-        <div class="flex items-center gap-3">
+
+        <div class="flex items-center gap-2 shrink-0">
           <a
             href="#research-form"
-            class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-brand-blue to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-brand-purple shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]"
+            class="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-brand-blue to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-brand-purple shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]"
             data-analytics="nav_cta"
           >
-            Find Your Follow-Up Gaps
+            <span class="sm:hidden">Get Started →</span>
+            <span class="hidden sm:inline">Find Your Follow-Up Gaps</span>
           </a>
         </div>
       </div>
