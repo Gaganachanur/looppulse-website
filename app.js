@@ -13,6 +13,11 @@ const CONFIG = {
   // Supabase Publishable Key (safe for public client-side access)
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_K6saD7zHFcRkVDCXLH0nMg_cSxq-F5o',
 
+  // Cloudflare Turnstile Managed Site Key
+  // Default: Cloudflare's always-pass test key for development ('1x00000000000000000000AA')
+  // Update with your production Turnstile site key created in Cloudflare Dashboard
+  TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+
   // Local storage key for confirmed submissions log
   STORAGE_KEY: 'looppulse_research_submissions',
 
@@ -247,6 +252,36 @@ function initPrivacyModal() {
 // ========================================================
 // 7. FORM SUBMISSION & VALIDATION ENGINE
 // ========================================================
+let turnstileWidgetId = null;
+
+function renderTurnstile() {
+  const container = document.getElementById('turnstileWidget');
+  if (!container) return;
+
+  if (typeof window.turnstile !== 'undefined') {
+    if (turnstileWidgetId === null) {
+      try {
+        turnstileWidgetId = window.turnstile.render('#turnstileWidget', {
+          sitekey: CONFIG.TURNSTILE_SITE_KEY,
+          theme: 'light',
+          callback: function(token) {
+            const err = document.getElementById('turnstileError');
+            if (err) err.classList.add('hidden');
+          },
+          'error-callback': function() {
+            console.warn('[LoopPulse] Turnstile challenge encountered a temporary error.');
+          }
+        });
+      } catch (err) {
+        console.warn('[LoopPulse] Turnstile render notice:', err);
+      }
+    }
+  } else {
+    // Retry if script has not loaded yet
+    setTimeout(renderTurnstile, 300);
+  }
+}
+
 function initFormEngine() {
   const form = document.getElementById('marketResearchForm');
   const submitBtn = document.getElementById('submitBtn');
@@ -260,6 +295,9 @@ function initFormEngine() {
   const submissionErrorMessage = document.getElementById('submissionErrorMessage');
 
   if (!form) return;
+
+  // Initialize Turnstile widget
+  renderTurnstile();
 
   // Submission in-flight lock to prevent double-submits
   let isSubmitting = false;
@@ -291,21 +329,21 @@ function initFormEngine() {
 
     let isValid = true;
 
-    // 1. Full name
+    // 1. Full name (2-100 chars)
     const fullName = document.getElementById('fullName');
     const nameValid = validateField(
       fullName, 
       fullName.parentElement.querySelector('.error-msg'), 
-      fullName.value.trim().length >= 2
+      fullName.value.trim().length >= 2 && fullName.value.trim().length <= 100
     );
     if (!nameValid) isValid = false;
 
-    // 2. Business name
+    // 2. Business name (2-100 chars)
     const businessName = document.getElementById('businessName');
     const bizValid = validateField(
       businessName, 
       businessName.parentElement.querySelector('.error-msg'), 
-      businessName.value.trim().length >= 2
+      businessName.value.trim().length >= 2 && businessName.value.trim().length <= 100
     );
     if (!bizValid) isValid = false;
 
@@ -318,22 +356,23 @@ function initFormEngine() {
     );
     if (!typeValid) isValid = false;
 
-    // 4. City
+    // 4. City (2-100 chars)
     const city = document.getElementById('city');
     const cityValid = validateField(
       city, 
       city.parentElement.querySelector('.error-msg'), 
-      city.value.trim().length >= 2
+      city.value.trim().length >= 2 && city.value.trim().length <= 100
     );
     if (!cityValid) isValid = false;
 
-    // 5. Phone (10 digits)
+    // 5. Phone (10 digits starting with 6, 7, 8, 9 with optional +91 or 0 prefix)
     const phone = document.getElementById('phone');
-    const cleanPhone = phone.value.replace(/[^0-9]/g, '');
+    const rawPhoneVal = phone.value.trim();
+    const phonePattern = /^(?:(?:\+91|0)[-\s]?)?[6-9]\d{4}[-\s]?\d{5}$/;
     const phoneValid = validateField(
       phone, 
       phone.parentElement.parentElement.querySelector('.error-msg'), 
-      cleanPhone.length === 10
+      phonePattern.test(rawPhoneVal)
     );
     if (!phoneValid) isValid = false;
 
@@ -357,12 +396,12 @@ function initFormEngine() {
       if (methodError) methodError.classList.add('hidden');
     }
 
-    // 9. Biggest challenge (Textarea)
+    // 9. Biggest challenge (Textarea, 5-1000 chars)
     const biggestChallenge = document.getElementById('biggestChallenge');
     const challengeValid = validateField(
       biggestChallenge, 
       biggestChallenge.parentElement.querySelector('.error-msg'), 
-      biggestChallenge.value.trim().length >= 5
+      biggestChallenge.value.trim().length >= 5 && biggestChallenge.value.trim().length <= 1000
     );
     if (!challengeValid) isValid = false;
 
@@ -386,6 +425,20 @@ function initFormEngine() {
       if (consentError) consentError.classList.add('hidden');
     }
 
+    // Cloudflare Turnstile Verification Token Check
+    let turnstileToken = '';
+    const turnstileWidgetEl = document.getElementById('turnstileWidget');
+    const turnstileError = document.getElementById('turnstileError');
+    if (turnstileWidgetEl && typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
+      turnstileToken = window.turnstile.getResponse(turnstileWidgetId) || '';
+      if (!turnstileToken) {
+        if (turnstileError) turnstileError.classList.remove('hidden');
+        isValid = false;
+      } else {
+        if (turnstileError) turnstileError.classList.add('hidden');
+      }
+    }
+
     // If invalid, scroll to the first invalid field
     if (!isValid) {
       const firstError = form.querySelector('.input-error, .text-rose-500:not(.hidden)');
@@ -405,7 +458,7 @@ function initFormEngine() {
       businessName: businessName.value.trim(),
       businessType: businessType.value,
       city: city.value.trim(),
-      phone: '+91' + cleanPhone,
+      phone: '+91' + rawPhoneVal.replace(/\D/g, '').slice(-10),
       email: document.getElementById('email').value.trim() || null,
       monthlyEnquiries: monthlyEnquiries.value,
       managementMethod: managementMethod.value,
@@ -413,7 +466,8 @@ function initFormEngine() {
       considerTesting: considerTesting.value,
       preferredContact: (form.querySelector('input[name="preferredContact"]:checked') || {}).value || 'WhatsApp',
       consent: true,
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
+      cfTurnstileToken: turnstileToken
     };
 
     // Prevent duplicate submissions and trigger UI loading state
@@ -445,10 +499,17 @@ function initFormEngine() {
       }
 
       if (!response.ok || (result && result.success === false)) {
-        const errorMsg = (result && (result.error || result.message)) 
-          ? (result.error || result.message) 
-          : `Submission failed with status ${response.status}.`;
-        throw new Error(errorMsg);
+        let userMessage = 'Unable to submit your responses. Please try again.';
+        if (response.status === 429) {
+          userMessage = 'Too many submission attempts. Please wait a few minutes before trying again.';
+        } else if (response.status === 403) {
+          userMessage = 'Security check failed. Please refresh the page and complete the verification.';
+        } else if (response.status === 413) {
+          userMessage = 'Submission exceeds maximum allowed size. Please shorten your answers.';
+        } else if (result && (result.error || result.message)) {
+          userMessage = result.error || result.message;
+        }
+        throw new Error(userMessage);
       }
 
       // Insertion confirmed by Supabase!
@@ -485,8 +546,13 @@ function initFormEngine() {
       }
 
     } catch (error) {
-      console.error('[LoopPulse] Supabase submission error:', error);
+      console.error('[LoopPulse] Supabase submission notice:', error.message || error);
       
+      // Reset Turnstile token on error so user can obtain a fresh token
+      if (typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
+        try { window.turnstile.reset(turnstileWidgetId); } catch (_) {}
+      }
+
       // Display clear error notification and keep form interactive
       if (submissionError) {
         if (submissionErrorMessage) {
@@ -495,7 +561,7 @@ function initFormEngine() {
         submissionError.classList.remove('hidden');
         submissionError.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        alert(`Submission Error: ${error.message || 'Unable to submit your responses. Please try again.'}`);
+        alert(error.message || 'Unable to submit your responses. Please try again.');
       }
 
       window.LoopPulseAnalytics.track('research_form_submission_failed', {
@@ -516,6 +582,11 @@ function initFormEngine() {
     resetFormBtn.addEventListener('click', () => {
       form.reset();
       if (submissionError) submissionError.classList.add('hidden');
+      const turnstileError = document.getElementById('turnstileError');
+      if (turnstileError) turnstileError.classList.add('hidden');
+      if (typeof window.turnstile !== 'undefined' && turnstileWidgetId !== null) {
+        try { window.turnstile.reset(turnstileWidgetId); } catch (_) {}
+      }
       form.classList.remove('hidden');
       successContainer.classList.add('hidden');
       form.scrollIntoView({ behavior: 'smooth' });

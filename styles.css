@@ -132,9 +132,12 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
-/* Print styles (clean) */
-@media print {
-  header, footer, #privacyModal, aside {
-    display: none !important;
-  }
+/* Cloudflare Turnstile responsive container */
+#turnstileWidget {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  min-height: 65px;
 }
+

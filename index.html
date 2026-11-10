@@ -61,6 +61,9 @@
     }
   </script>
 
+  <!-- Cloudflare Turnstile CAPTCHA (Explicit Rendering) -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+
   <!-- Custom CSS for specialized components, micro-interactions, and accessibility -->
   <link rel="stylesheet" href="styles.css">
 
@@ -843,9 +846,11 @@
                          id="fullName" 
                          name="fullName" 
                          required 
+                         maxlength="100"
+                         autocomplete="name"
                          placeholder="e.g. Rahul Sharma" 
                          class="w-full px-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all">
-                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter your name.</span>
+                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter your name (2–100 characters).</span>
                 </div>
 
                 <!-- 2. Business name -->
@@ -857,9 +862,11 @@
                          id="businessName" 
                          name="businessName" 
                          required 
+                         maxlength="100"
+                         autocomplete="organization"
                          placeholder="e.g. Zenith Fitness Studio" 
                          class="w-full px-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all">
-                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter your business name.</span>
+                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter your business name (2–100 characters).</span>
                 </div>
 
                 <!-- 3. Business type -->
@@ -891,6 +898,8 @@
                          id="city" 
                          name="city" 
                          required 
+                         maxlength="100"
+                         autocomplete="address-level2"
                          placeholder="e.g. Mumbai, Bengaluru, Pune, Delhi NCR" 
                          class="w-full px-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all">
                   <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter your city.</span>
@@ -907,12 +916,15 @@
                            id="phone" 
                            name="phone" 
                            required 
-                           pattern="[0-9]{10}"
+                           maxlength="10"
+                           inputmode="numeric"
+                           pattern="[6-9][0-9]{9}"
+                           autocomplete="tel"
                            placeholder="98765 43210" 
                            class="w-full pl-12 pr-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all">
                   </div>
-                  <span class="text-[10px] text-slate-400 mt-1 block">10-digit mobile or WhatsApp number</span>
-                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter a valid 10-digit number.</span>
+                  <span class="text-[10px] text-slate-400 mt-1 block">10-digit Indian mobile or WhatsApp number</span>
+                  <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please enter a valid 10-digit mobile number (starts with 6–9).</span>
                 </div>
 
                 <!-- 6. Business email (optional) -->
@@ -923,6 +935,8 @@
                   <input type="email" 
                          id="email" 
                          name="email" 
+                         maxlength="100"
+                         autocomplete="email"
                          placeholder="e.g. contact@business.com" 
                          class="w-full px-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all">
                 </div>
@@ -1010,9 +1024,10 @@
                           name="biggestChallenge" 
                           rows="3" 
                           required 
+                          maxlength="1000"
                           placeholder="e.g. Staff forget to contact leads on weekends; or we get leads on WhatsApp but lose track once customer stops responding..." 
                           class="w-full px-4 py-3 rounded-xl text-sm border border-slate-300 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all"></textarea>
-                <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please describe your biggest challenge.</span>
+                <span class="error-msg text-[11px] text-rose-500 hidden mt-1">Please describe your biggest challenge (5–1000 characters).</span>
               </div>
 
             </div>
@@ -1102,6 +1117,10 @@
                   <p class="font-semibold text-rose-800" id="submissionErrorTitle">Unable to submit response</p>
                   <p class="mt-0.5 text-rose-600" id="submissionErrorMessage">Something went wrong. Please check your connection and try again.</p>
                 </div>
+              <!-- Cloudflare Turnstile CAPTCHA Widget Container -->
+              <div class="mb-5 flex flex-col items-center justify-center">
+                <div id="turnstileWidget" class="min-h-[65px] flex items-center justify-center"></div>
+                <span id="turnstileError" class="text-[11px] text-rose-500 hidden mt-1.5 text-center font-medium">Please complete the verification check before submitting.</span>
               </div>
 
               <button type="submit" 
